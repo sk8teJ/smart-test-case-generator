@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    container_name: smart-test-case-generator
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: INFO
+    restart: unless-stopped
