@@ -33,8 +33,3 @@ class GenerationResponse(BaseModel):
     generated_count: int
     test_cases: list[TestCase]
     warnings: list[str] = Field(default_factory=list)
-
-    @classmethod
-    def model_validate_with_count(cls, **data: Any) -> "GenerationResponse":
-        data["generated_count"] = len(data.get("test_cases", []))
-        return cls.model_validate(data)
