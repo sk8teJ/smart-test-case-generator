@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import ValidationError
 
 from app.schemas.test_case import GenerationResponse
 from app.services.openapi_parser import OpenAPIParseError
@@ -29,10 +28,9 @@ def generate(
         return GenerationResponse(
             specification_title=specification.get("info", {}).get("title", "Untitled API"),
             operations_count=operations_count,
+            generated_count=len(cases),
             test_cases=cases,
             warnings=warnings,
         )
     except OpenAPIParseError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except ValidationError as exc:
-        raise HTTPException(status_code=500, detail="Generated test case failed validation") from exc
