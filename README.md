@@ -1,101 +1,223 @@
 # Smart Test Case Generator
 
-A backend tool that analyzes OpenAPI 3.x specifications and generates structured API test cases. Deterministic rules are the source of truth; an optional Gemini integration can be added as a separate enhancement.
+**Генератор тест-кейсов для REST API на основе спецификаций OpenAPI 3.x.**
 
-## Current MVP
+Проект анализирует контракт API в формате JSON и автоматически формирует набор структурированных сценариев тестирования: позитивных, негативных и граничных. Генерация основана на детерминированных правилах, а полученные сценарии проверяются моделями Pydantic.
 
-- Parse and validate OpenAPI 3.0/3.1 JSON specifications.
-- Discover API operations, parameters, request-body schemas and response codes.
-- Generate positive, negative and boundary-value test cases.
-- Validate generated cases against a Pydantic model.
-- Export generated scenarios as JSON.
-- Expose an interactive Swagger UI through FastAPI.
-- Run automated tests with pytest.
+Это учебный MVP, предназначенный для демонстрации подхода к автоматизации подготовки API-тестов. Он помогает быстрее получить основу набора тест-кейсов, но не заменяет проверку сценариев тестировщиком.
 
-## Quick start (local)
+## Возможности
 
-Requirements: Python 3.12+.
+- **Разбор OpenAPI 3.0 и 3.1:** проверка структуры спецификации и извлечение описанных HTTP-операций.
+- **Анализ параметров:** обработка path-, query- и других описанных параметров, включая обязательность и типы.
+- **Анализ тела запроса:** извлечение JSON-схемы request body и использование объявленных ограничений.
+- **Позитивные сценарии:** формирование примеров корректных запросов на основе схемы.
+- **Негативные сценарии:** проверки отсутствующих обязательных параметров и полей, а также значений несовместимых типов.
+- **Граничные сценарии:** проверки ограничений `minimum`, `maximum`, `minLength` и `maxLength`, если они заданы в спецификации.
+- **Валидация результата:** проверка структуры сгенерированных тест-кейсов с помощью Pydantic.
+- **JSON-экспорт:** API возвращает структурированный результат, который можно использовать в дальнейших инструментах тестирования.
+- **Документация API:** интерактивный Swagger UI и ReDoc на базе FastAPI.
+- **Автоматические тесты:** проект использует pytest.
+
+## Технологический стек
+
+| Технология | Назначение |
+|---|---|
+| Python 3.12+ | Основной язык разработки |
+| FastAPI | HTTP API и обработка запросов |
+| Pydantic | Описание моделей и валидация результата |
+| OpenAPI 3.x | Формат входной спецификации |
+| pytest | Автоматизированное тестирование |
+| httpx | HTTP-клиент для тестирования |
+| Docker / Docker Compose | Контейнеризация и запуск проекта |
+
+## Как работает приложение
+
+1. Клиент отправляет JSON-документ со спецификацией OpenAPI.
+2. FastAPI принимает запрос и передаёт документ в модуль разбора.
+3. Парсер проверяет обязательную структуру документа, находит HTTP-операции, параметры, схемы тела запроса и коды успешных ответов.
+4. Генератор на основе найденных ограничений формирует позитивные, негативные и граничные сценарии.
+5. Pydantic проверяет структуру созданных тест-кейсов.
+6. API возвращает количество найденных операций, количество сценариев, сами тест-кейсы и предупреждения парсера.
+
+### Архитектура
+
+```text
+                 OpenAPI JSON
+                      |
+                      v
+                FastAPI endpoint
+                      |
+                      v
+                OpenAPI parser
+                      |
+          +-----------+-----------+
+          |                       |
+          v                       v
+   HTTP operations          Schema metadata
+   and parameters           and constraints
+          |                       |
+          +-----------+-----------+
+                      |
+                      v
+             Rule-based generator
+                      |
+                      v
+              Pydantic validation
+                      |
+                      v
+              JSON API response
+          (test cases + warnings)
+```
+
+## Быстрый запуск
+
+### Требования
+
+- Python 3.12 или новее
+- Git — если вы клонируете репозиторий
+- Docker и Docker Compose — только для запуска в контейнере
+
+### Windows (PowerShell)
+
+Клонируйте репозиторий и перейдите в папку проекта:
+
+```powershell
+git clone https://github.com/sk8teJ/smart-test-case-generator.git
+cd smart-test-case-generator
+```
+
+Создайте виртуальное окружение и установите зависимости:
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+Запустите приложение:
+
+```powershell
 uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000/docs.
+### Linux / macOS
 
-## Quick start (Docker)
+```bash
+git clone https://github.com/sk8teJ/smart-test-case-generator.git
+cd smart-test-case-generator
+
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+uvicorn app.main:app --reload
+```
+
+После запуска приложение будет доступно по адресу:
+
+- API: http://127.0.0.1:8000
+- Swagger UI: http://127.0.0.1:8000/docs
+- ReDoc: http://127.0.0.1:8000/redoc
+- Проверка состояния: http://127.0.0.1:8000/health
+
+### Запуск через Docker Compose
+
+Из корневой папки проекта выполните:
 
 ```bash
 docker compose up --build
 ```
 
+После сборки API будет доступно на порту `8000`.
+
 ## API
 
-### Generate test cases
+### Генерация тест-кейсов
+
+`POST /api/v1/test-cases/generate`
+
+В теле запроса необходимо передать JSON-объект со спецификацией OpenAPI 3.0.x или 3.1.x.
+
+Заголовок:
 
 ```http
-POST /api/v1/test-cases/generate
 Content-Type: application/json
 ```
 
-Send an OpenAPI document as the JSON request body. Optional query parameters:
+Дополнительные query-параметры:
 
-- `include_positive` (default: true)
-- `include_negative` (default: true)
-- `include_boundary` (default: true)
+| Параметр | По умолчанию | Описание |
+|---|---:|---|
+| `include_positive` | `true` | Включить позитивные сценарии |
+| `include_negative` | `true` | Включить негативные сценарии |
+| `include_boundary` | `true` | Включить граничные сценарии |
 
-### Health
+Пример вызова с помощью curl:
 
-```http
-GET /health
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/test-cases/generate?include_positive=true&include_negative=true&include_boundary=true" \
+  -H "Content-Type: application/json" \
+  --data-binary @examples/petstore.json
 ```
 
-### Example
+> В репозитории также есть пример спецификации `examples/petstore.yaml`. Текущий endpoint принимает JSON в теле запроса; загрузка YAML-файлов напрямую пока не реализована.
 
-A sample specification is available at `examples/petstore.yaml`. The API currently accepts JSON; YAML upload support is planned for the next milestone.
+### Проверка состояния приложения
 
-## Development
+`GET /health`
+
+Возвращает статус приложения. Этот endpoint можно использовать для базовой проверки доступности сервиса.
+
+## Тестирование
+
+Для запуска автоматических тестов выполните из корневой папки проекта:
 
 ```bash
 pytest -q
 ```
 
-## Architecture
+## Структура проекта
 
-```text
-OpenAPI JSON
-    |
-    v
-FastAPI endpoint
-    |
-    v
-OpenAPI parser -----> operation / schema metadata
-    |
-    v
-Rule-based test generator
-    |
-    v
-Pydantic validation
-    |
-    v
-JSON test-case response
-```
+Основные компоненты приложения:
 
-## Roadmap
+- `app/main.py` — создание FastAPI-приложения и подключение маршрутов.
+- `app/api/routes/` — HTTP-маршруты генерации тест-кейсов и проверки состояния.
+- `app/core/config.py` — настройки приложения.
+- `app/services/openapi_parser.py` — разбор спецификации OpenAPI.
+- `app/services/test_case_generator.py` — генерация тестовых сценариев по правилам.
+- `app/schemas/` — Pydantic-модели ответа и тест-кейса.
+- `examples/` — примеры спецификаций API.
+- `tests/` — автоматические тесты.
 
-1. [x] Initial FastAPI application and rule-based generator.
-2. [ ] YAML file upload, richer schema resolution and reusable components.
-3. [ ] Optional Gemini-generated scenarios with strict validation.
-4. [ ] pytest export and execution against a target API.
-5. [ ] UI, persistence, reports and CI improvements.
+## Ограничения текущей версии
 
-## Scope and limitations
+Важно учитывать границы возможностей MVP:
 
-The first version generates test scenarios from the contract. It does not yet execute requests against a live API, infer undocumented business rules, or guarantee that every generated expected response is correct. Scenarios are suggestions derived from declared OpenAPI constraints and should be reviewed before use.
+- Генератор работает со спецификациями OpenAPI 3.0.x и 3.1.x, переданными как JSON.
+- Прямая загрузка YAML пока не поддерживается, несмотря на наличие примера YAML в репозитории.
+- Генерация основана на явно описанных в контракте параметрах и ограничениях. Неописанные бизнес-правила самостоятельно не определяются.
+- Внешние ссылки `$ref` не загружаются из сети; разрешение локальных ссылок ограничено текущим документом.
+- Сервис формирует сценарии, но пока не отправляет запросы в целевой API и не исполняет тесты.
+- Ожидаемые HTTP-статусы в сценариях являются предположениями на основе контракта и правил генерации. Их необходимо сверять с фактическим поведением API.
+- Сгенерированные тест-кейсы рекомендуется проверять и при необходимости редактировать перед использованием.
 
-## License
+## Планы развития
 
-MIT
+- Поддержка загрузки YAML-спецификаций.
+- Более полная обработка сложных схем и переиспользуемых компонентов OpenAPI.
+- Дополнительные варианты генерации сценариев и улучшение покрытия.
+- Экспорт тест-кейсов в форматы, удобные для тестовых систем.
+- Возможность запуска сгенерированных проверок против целевого API.
+- Расширение отчётности и пользовательского интерфейса.
+- Экспериментальная интеграция с LLM для предложения дополнительных сценариев с обязательной последующей валидацией.
+
+## Назначение проекта
+
+Проект создан как практическая работа по автоматизации задач тестирования API. В нём объединены обработка структурированных данных, работа с REST API, проектирование backend-сервиса, генерация тестовых сценариев и проверка результатов.
+
+## Лицензия
+
+Проект распространяется под лицензией MIT. Подробности — в файле [LICENSE](LICENSE).
