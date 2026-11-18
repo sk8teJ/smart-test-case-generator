@@ -110,7 +110,7 @@ def _body_cases(operation: dict[str, Any], include_negative: bool, include_bound
             {"omit_body": True}, None, "high"))
     cases.append(_case(operation, "valid request body", "positive",
         "Verify the operation accepts a request body that follows the declared schema.",
-        {"body": body}, operation["success_status"], "high")]
+        {"body": body}, operation["success_status"], "high"))
     if include_negative and schema.get("type") == "object":
         properties = schema.get("properties", {})
         for required in schema.get("required", []):
