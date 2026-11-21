@@ -1,4 +1,5 @@
 import hashlib
+import math
 from typing import Any
 
 from app.schemas.test_case import TestCase, TestStep
@@ -18,8 +19,18 @@ def _example_for_schema(schema: Any) -> Any:
     if kind == "string":
         fmt = schema.get("format")
         return {"email": "qa@example.com", "date": "2026-01-01", "date-time": "2026-01-01T10:00:00Z"}.get(fmt, "sample")
-    if kind in ("integer", "number"):
-        return schema.get("minimum", 1)
+    if kind == "integer":
+        if "minimum" in schema:
+            return math.ceil(schema["minimum"])
+        if "maximum" in schema:
+            return math.floor(schema["maximum"])
+        return 1
+    if kind == "number":
+        if "minimum" in schema:
+            return schema["minimum"]
+        if "maximum" in schema:
+            return min(1, schema["maximum"])
+        return 1
     if kind == "boolean":
         return True
     if kind == "array":
