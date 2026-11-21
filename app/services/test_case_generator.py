@@ -111,12 +111,17 @@ def _parameter_cases(operation: dict[str, Any], include_negative: bool, include_
 
 def _body_cases(operation: dict[str, Any], include_negative: bool, include_boundary: bool) -> list[TestCase]:
     schema = operation.get("request_schema")
+    cases = []
+    if include_negative and operation.get("request_body_required", False):
+        cases.append(_case(operation, "missing required request body", "negative",
+            "Verify the API rejects a request when its required body is omitted.",
+            {"omit_body": True}, None, "high"))
     if not isinstance(schema, dict):
-        return []
+        return cases
     body = _example_for_schema(schema)
-    cases = [_case(operation, "valid request body", "positive",
+    cases.append(_case(operation, "valid request body", "positive",
         "Verify the operation accepts a request body that follows the declared schema.",
-        {"body": body}, operation["success_status"], "high")]
+        {"body": body}, operation["success_status"], "high"))
     if include_negative and schema.get("type") == "object":
         properties = schema.get("properties", {})
         for required in schema.get("required", []):

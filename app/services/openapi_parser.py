@@ -66,6 +66,9 @@ def parse_openapi(document: dict[str, Any]) -> tuple[list[dict[str, Any]], list[
             request_schema = None
             request_body = operation.get("requestBody", {})
             request_body = _resolve_local_ref(document, request_body)
+            request_body_required = (
+                isinstance(request_body, dict) and request_body.get("required") is True
+            )
             if isinstance(request_body, dict):
                 content = request_body.get("content", {})
                 for media_type in ("application/json", "application/*+json", "*/*"):
@@ -90,6 +93,7 @@ def parse_openapi(document: dict[str, Any]) -> tuple[list[dict[str, Any]], list[
                 "summary": operation.get("summary") or operation.get("description") or f"{method.upper()} {path}",
                 "parameters": parameters,
                 "request_schema": request_schema,
+                "request_body_required": request_body_required,
                 "responses": responses,
                 "success_status": success_status,
             })
